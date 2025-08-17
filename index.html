@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Copiloto Cripto AI — Demo (GitHub Pages, v2)</title>
+  <meta name="description" content="Protótipo do Copiloto Cripto AI — dashboard cripto com Market Heat, Sentimento, On-chain, Baleias, Posições e Simulador." />
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --panel: #ffffff;
+      --muted: #6b7280;
+      --text: #0f172a;
+      --border: #e5e7eb;
+      --green: #10b981;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --accent: #111827;
+      --pill: #f3f4f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: linear-gradient(#f8fafc, #eaeef5); color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+    .header { display:flex; align-items:center; justify-content:space-between; }
+    .brand { display:flex; align-items:center; gap:12px; }
+    .logo { width:36px; height:36px; border-radius:14px; background: var(--accent); color:#fff; display:grid; place-items:center; font-weight:700; }
+    .title { font-size: 20px; font-weight: 800; line-height: 1.1; }
+    .subtitle { font-size: 12px; color: var(--muted); margin-top: -2px; }
+    select, button, input {
+      border:1px solid var(--border); border-radius:12px; padding:8px 12px; background:#fff; font-size: 14px;
+    }
+    button.primary { background: var(--accent); color:#fff; border-color: var(--accent); cursor:pointer; }
+    button.ghost { background:#fff; color:#111; cursor:pointer; }
+    .grid { display:grid; gap:16px; }
+    .grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    @media (max-width: 900px){ .grid.cols-4 { grid-template-columns: repeat(2, 1fr);} }
+    @media (max-width: 600px){ .grid.cols-4, .grid.cols-3, .grid.cols-2 { grid-template-columns: 1fr;} }
+    .card {
+      background: var(--panel); border:1px solid var(--border); border-radius:18px; padding:16px;
+      box-shadow: 0 4px 12px rgba(2,6,23,.04);
+    }
+    .stat-label { font-size:12px; color: var(--muted); }
+    .stat-value { font-size:20px; font-weight:800; }
+    .stat-sub { font-size:11px; color: var(--muted); }
+    .pill { display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px; background: var(--pill); color:#111; }
+    .pill.green{ background:#dcfce7; color:#166534;}
+    .pill.red{ background:#fee2e2; color:#991b1b;}
+    .pill.yellow{ background:#fef3c7; color:#92400e;}
+    .section-title { font-size:14px; font-weight:700; color:#374151; margin: 18px 0 8px; }
+    .bar { position: relative; width:100%; height:14px; background: linear-gradient(90deg, #22c55e, #eab308 55%, #ef4444); opacity:.3; border-radius:999px; }
+    .bar-pointer { position:absolute; top:50%; transform: translateY(-50%); width:2px; height:18px; background:#111827; border-radius:2px; }
+    table { width:100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align:left; padding:10px 6px; }
+    thead th { color: var(--muted); font-size:12px; }
+    tbody tr { border-top:1px solid var(--border); }
+    .row { display:flex; gap:10px; align-items:center; }
+    .ticker { display:flex; gap:8px; overflow:auto; scrollbar-width:none; -ms-overflow-style:none; }
+    .ticker::-webkit-scrollbar{ display:none; }
+    .badge { display:flex; align-items:center; gap:6px; white-space:nowrap; background:#fff; border:1px solid var(--border); padding:6px 10px; border-radius:16px; }
+    .dot{ width:8px; height:8px; border-radius:50%; }
+    .dot.green{ background:#10b981;} .dot.red{ background:#ef4444;} .dot.yellow{ background:#eab308;}
+    .range-row { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; }
+    .mini { font-size:12px; color: var(--muted); }
+    .heatgrid { display:grid; grid-template-columns: repeat(6, 1fr); gap:10px; }
+    @media(max-width:900px){ .heatgrid{ grid-template-columns: repeat(3, 1fr);} }
+    @media(max-width:600px){ .heatgrid{ grid-template-columns: repeat(2, 1fr);} }
+    .cell{ border:1px solid var(--border); border-radius:16px; padding:14px; text-align:center; }
+    .cell.good{ background:#ecfdf5; border-color:#d1fae5;} .cell.bad{ background:#fef2f2; border-color:#fee2e2;}
+    .footer { font-size:11px; color: var(--muted); margin-top: 24px; }
+    /* Modal */
+    .modal-backdrop{ position:fixed; inset:0; background:rgba(15,23,42,.5); display:none; align-items:center; justify-content:center; padding:16px; z-index:999; }
+    .modal{ background:#fff; border:1px solid var(--border); border-radius:18px; padding:16px; max-width:520px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,.25); }
+    .modal header{ font-weight:800; font-size:18px; margin-bottom:8px; }
+    .form-grid{ display:grid; gap:10px; grid-template-columns: 1fr 1fr; }
+    .form-grid .full{ grid-column: 1 / -1; }
+    .form-row{ display:flex; flex-direction:column; gap:6px; }
+    .actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:8px;}
+    .link{ color:#2563eb; cursor:pointer; text-decoration:underline;}
+    .btn-del{ background:#fff; border:1px solid #fee2e2; color:#991b1b; border-radius:10px; padding:6px 10px; cursor:pointer;}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="brand">
+        <div class="logo">AI</div>
+        <div>
+          <div class="title">Copiloto Cripto AI</div>
+          <div class="subtitle">Protótipo – Demo estática para GitHub Pages (v2)</div>
+        </div>
+      </div>
+      <div class="row">
+        <select id="perfil">
+          <option>Conservador</option>
+          <option selected>Moderado</option>
+          <option>Agressivo</option>
+        </select>
+        <button class="primary" id="btnNova">➕ Nova Operação</button>
+      </div>
+    </div>
+
+    <div class="grid cols-4" style="margin-top:16px;">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <div class="stat-label">Saldo total</div>
+            <div class="stat-value" id="saldo">$0.00</div>
+            <div class="stat-sub" id="saldoSub">—</div>
+          </div>
+          <span class="pill green" id="ytd">+21.5% YTD</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <div class="stat-label">Market Heat</div>
+            <div class="stat-value"><span id="heat">70</span>/100</div>
+            <div class="stat-sub">Regime: <b id="regime">Ofensivo</b></div>
+          </div>
+          <div class="mini">
+            <div>Sentimento: <b id="sScore">62</b></div>
+            <div>On-chain: <b id="oScore">58</b></div>
+            <div>Baleias: <b id="wScore">61</b></div>
+          </div>
+        </div>
+        <div class="bar" style="margin-top:10px;"><div class="bar-pointer" id="heatPointer" style="left:70%;"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="stat-label">Risco de Liquidação (estimado)</div>
+        <div class="bar" style="margin-top:6px;"><div class="bar-pointer" id="riskPointer" style="left:32%;"></div></div>
+        <div class="mini">*Estimativa didática baseada em perfil de posição e alavancagem.</div>
+      </div>
+
+      <div class="card">
+        <div class="stat-label" style="margin-bottom:6px;">Pesos do Índice</div>
+        <div class="range-row">
+          <div>
+            <div class="mini">sentiment: <b id="ws">40%</b></div>
+            <input id="wSent" type="range" min="0" max="100" value="40" />
+          </div>
+          <div>
+            <div class="mini">onchain: <b id="wo">40%</b></div>
+            <input id="wOn" type="range" min="0" max="100" value="40" />
+          </div>
+          <div>
+            <div class="mini">whales: <b id="ww">20%</b></div>
+            <input id="wWh" type="range" min="0" max="100" value="20" />
+          </div>
+        </div>
+        <div class="mini">*A soma não precisa ser 100% (normalização visual para a demo).</div>
+      </div>
+    </div>
+
+    <div class="section-title">Sentimento de Mercado</div>
+    <div class="grid cols-3">
+      <div class="card"><div class="mini">Fear & Greed</div><div class="stat-value">64/100</div><div class="mini">Neutro</div></div>
+      <div class="card"><div class="mini">Funding (8h)</div><div class="stat-value">-1.20%</div><div class="mini">Prêmio para long</div></div>
+      <div class="card"><div class="mini">Contango (anual)</div><div class="stat-value">4.2%</div><div class="mini">Futuros vs Spot</div></div>
+      <div class="card"><div class="mini">Skew 25Δ</div><div class="stat-value">3.1</div><div class="mini">Calls > Puts</div></div>
+      <div class="card"><div class="mini">Put/Call Ratio</div><div class="stat-value">0.78</div><div class="mini">Calls dominam</div></div>
+      <div class="card"><div class="mini">Social Spike</div><div class="stat-value">Sim</div><div class="mini">Menções anômalas</div></div>
+    </div>
+
+    <div class="section-title">On-chain (saúde da rede)</div>
+    <div class="heatgrid">
+      <div class="cell good"><div class="mini">Netflow Z</div><div class="stat-value">-1.40</div><div class="mini">Saudável</div></div>
+      <div class="cell good"><div class="mini">MVRV-Z</div><div class="stat-value">1.90</div><div class="mini">Saudável</div></div>
+      <div class="cell good"><div class="mini">SOPR</div><div class="stat-value">1.01</div><div class="mini">Saudável</div></div>
+      <div class="cell good"><div class="mini">Active Addr</div><div class="stat-value">0.60</div><div class="mini">Saudável</div></div>
+      <div class="cell good"><div class="mini">SSR</div><div class="stat-value">0.42</div><div class="mini">Saudável</div></div>
+      <div class="cell good"><div class="mini">Staking Δ</div><div class="stat-value">0.03</div><div class="mini">Saudável</div></div>
+    </div>
+
+    <div class="section-title">Movimento de Baleias</div>
+    <div class="card">
+      <div class="ticker">
+        <div class="badge"><span class="dot red"></span><span class="mini">[13:04] 8,2k BTC → Binance</span></div>
+        <div class="badge"><span class="dot green"></span><span class="mini">[13:22] 12,5k ETH saindo da Coinbase</span></div>
+        <div class="badge"><span class="dot yellow"></span><span class="mini">[13:40] Ordens >$1M em Bybit (BTC)</span></div>
+      </div>
+    </div>
+
+    <div class="grid cols-3" style="margin-top:16px;">
+      <div class="card" style="grid-column: span 2;">
+        <div class="section-title" style="margin-top:0;">Minhas Posições <span class="mini">(<span class="link" id="limpar">limpar tudo</span>)</span></div>
+        <div style="overflow:auto;">
+          <table>
+            <thead><tr><th>Cripto</th><th>Qtd</th><th>Entrada</th><th>Preço</th><th>P&L</th><th>Risco</th><th>Valor</th><th></th></tr></thead>
+            <tbody id="posBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-top:0;">Alertas de Ação</div>
+        <div id="alerts"></div>
+      </div>
+    </div>
+
+    <div class="section-title">Recomendações (perfil + regime) <span class="pill green" id="regimePill">Ofensivo</span></div>
+    <div class="grid cols-2">
+      <div class="card"><div class="mini">Tamanho-base das novas posições</div><div class="stat-value" id="sizeRule">120% do padrão</div></div>
+      <div class="card"><div class="mini">Exposição total em risco (teto)</div><div class="stat-value" id="riskCap">40% da carteira</div></div>
+      <div class="card"><div class="mini">Alavancagem máxima sugerida</div><div class="stat-value" id="levMax">2x</div></div>
+      <div class="card"><div class="mini">Stops/TP dinâmicos</div><div class="stat-value" id="stops">Stops mais folgados, TPs por parciais</div></div>
+    </div>
+
+    <div class="section-title">Simulador “E se…?”</div>
+    <div class="card">
+      <div class="range-row">
+        <div><div class="mini">BTC variação (%)</div><input id="btc" type="range" min="-20" max="20" value="0"><div class="mini" id="btcVal">0%</div></div>
+        <div><div class="mini">ETH variação (%)</div><input id="eth" type="range" min="-20" max="20" value="0"><div class="mini" id="ethVal">0%</div></div>
+        <div><div class="mini">SOL variação (%)</div><input id="sol" type="range" min="-20" max="20" value="0"><div class="mini" id="solVal">0%</div></div>
+      </div>
+      <div class="row" style="gap:24px; margin-top:12px;">
+        <div><div class="mini">Valor atual</div><div class="stat-value" id="valAtual">$0.00</div></div>
+        <div><div class="mini">Valor simulado</div><div class="stat-value" id="valSim">$0.00</div></div>
+        <div><div class="mini">Impacto</div><div class="stat-value" id="impacto">+-$0.00</div></div>
+      </div>
+    </div>
+
+    <div class="footer">Este protótipo é para demonstração. Não constitui recomendação de investimento. Criptomoedas envolvem riscos elevados.</div>
+  </div>
+
+  <!-- Modal Nova Operação -->
+  <div class="modal-backdrop" id="modalBg" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header id="modalTitle">Nova Operação</header>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Cripto</label>
+          <input id="fSymbol" placeholder="BTC, ETH, SOL..." />
+        </div>
+        <div class="form-row">
+          <label>Quantidade</label>
+          <input id="fQty" type="number" step="0.0001" placeholder="0.10" />
+        </div>
+        <div class="form-row">
+          <label>Preço de entrada (USD)</label>
+          <input id="fEntry" type="number" step="0.01" placeholder="60000" />
+        </div>
+        <div class="form-row">
+          <label>Preço atual (USD)</label>
+          <input id="fPrice" type="number" step="0.01" placeholder="61000" />
+        </div>
+        <div class="form-row full">
+          <label>Risco (0 a 1)</label>
+          <input id="fRisk" type="number" step="0.01" min="0" max="1" placeholder="0.20" />
+        </div>
+      </div>
+      <div class="actions">
+        <button class="ghost" id="btnCancel">Cancelar</button>
+        <button class="primary" id="btnSave">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      // -------- Util --------
+      function fmtUSD(n){ return n.toLocaleString('en-US',{style:'currency',currency:'USD'}); }
+      function loadPositions(){
+        const raw = localStorage.getItem('ccai_positions');
+        if (raw) { try { return JSON.parse(raw); } catch(e){} }
+        // default seed
+        const seed = [
+          { symbol: "BTC", qty: 0.15, entry: 60200, price: 61500, risk: 0.18 },
+          { symbol: "ETH", qty: 2.0, entry: 3000, price: 2850, risk: 0.42 },
+          { symbol: "SOL", qty: 20, entry: 160, price: 175, risk: 0.12 },
+        ];
+        localStorage.setItem('ccai_positions', JSON.stringify(seed));
+        return seed;
+      }
+      function savePositions(list){ localStorage.setItem('ccai_positions', JSON.stringify(list)); }
+      function sum(a,b){ return a+b; }
+
+      let positions = loadPositions();
+
+      // -------- Render da tabela e KPIs --------
+      const posBody = document.getElementById('posBody');
+      function renderPositions(){
+        posBody.innerHTML = '';
+        positions.forEach((p, idx) => {
+          const pnlPct = ((p.price - p.entry) / p.entry) * 100;
+          const value = p.price * p.qty;
+          const tr = document.createElement('tr');
+          tr.innerHTML = \`
+            <td><b>\${p.symbol}</b></td>
+            <td>\${p.qty}</td>
+            <td>\${fmtUSD(p.entry)}</td>
+            <td>\${fmtUSD(p.price)}</td>
+            <td style="font-weight:700;color:\${pnlPct>=0?'#059669':'#dc2626'}">\${pnlPct>=0?'+':''}\${pnlPct.toFixed(2)}%</td>
+            <td>\${p.risk<0.2?'<span class="pill green">Baixo</span>':(p.risk<0.5?'<span class="pill yellow">Médio</span>':'<span class="pill red">Alto</span>')}</td>
+            <td>\${fmtUSD(value)}</td>
+            <td><button class="btn-del" data-i="\${idx}">Excluir</button></td>\`;
+          posBody.appendChild(tr);
+        });
+        // saldo e risco
+        const total = positions.map(p=>p.price*p.qty).reduce(sum,0);
+        document.getElementById('saldo').textContent = fmtUSD(total);
+        document.getElementById('saldoSub').textContent = '+4.8% hoje'; // demo
+        const risk = positions.map(p=>p.price*p.qty*p.risk).reduce(sum,0) / (total || 1);
+        document.getElementById('riskPointer').style.left = Math.round(risk*100)+'%';
+        // listeners para delete
+        document.querySelectorAll('.btn-del').forEach(btn=>{
+          btn.addEventListener('click', (e)=>{
+            const i = Number(e.target.getAttribute('data-i'));
+            positions.splice(i,1);
+            savePositions(positions);
+            renderPositions();
+          });
+        });
+      }
+      renderPositions();
+
+      // -------- Pesos do índice --------
+      const wSent = document.getElementById('wSent');
+      const wOn   = document.getElementById('wOn');
+      const wWh   = document.getElementById('wWh');
+      function updWeights(){
+        document.getElementById('ws').textContent = wSent.value+'%';
+        document.getElementById('wo').textContent = wOn.value+'%';
+        document.getElementById('ww').textContent = wWh.value+'%';
+        const sScore=62, oScore=58, wScore=61;
+        const heat = Math.round(sScore*(wSent.value/100)+oScore*(wOn.value/100)+wScore*(wWh.value/100));
+        document.getElementById('heat').textContent = heat;
+        document.getElementById('heatPointer').style.left = heat+'%';
+        const regime = heat<=25?'Defensivo':heat<=60?'Neutro':'Ofensivo';
+        document.getElementById('regime').textContent = regime;
+        document.getElementById('regimePill').textContent = regime;
+        document.getElementById('regimePill').className = 'pill ' + (regime==='Ofensivo'?'green':regime==='Neutro'?'yellow':'red');
+      }
+      [wSent,wOn,wWh].forEach(el=>el.addEventListener('input',updWeights));
+      updWeights();
+
+      // -------- Simulador --------
+      const sliders = ['btc','eth','sol'];
+      function recalc(){
+        const deltas = {
+          BTC: Number(document.getElementById('btc').value),
+          ETH: Number(document.getElementById('eth').value),
+          SOL: Number(document.getElementById('sol').value),
+        };
+        document.getElementById('btcVal').textContent = deltas.BTC+'%';
+        document.getElementById('ethVal').textContent = deltas.ETH+'%';
+        document.getElementById('solVal').textContent = deltas.SOL+'%';
+        const curVal = positions.map(p=>p.price*p.qty).reduce(sum,0);
+        let simVal = 0;
+        positions.forEach(p=>{
+          const dp = deltas[p.symbol]/100 || 0;
+          const newPrice = p.price*(1+dp);
+          simVal += newPrice*p.qty;
+        });
+        const diff = simVal-curVal;
+        document.getElementById('valAtual').textContent = fmtUSD(curVal);
+        document.getElementById('valSim').textContent = fmtUSD(simVal);
+        const sign = diff>=0?'+':'';
+        document.getElementById('impacto').textContent = sign+fmtUSD(diff);
+      }
+      sliders.forEach(id=>document.getElementById(id).addEventListener('input', recalc));
+      recalc();
+
+      // -------- Alertas (exemplo estático) --------
+      const alerts = document.getElementById('alerts');
+      const alertItems = [
+        { tone:'green', title:'Acumulação + funding negativo', text:'Sugerir DCA em BTC (0,5–1,0% da carteira).', why:'Saídas de CEX + prêmio para long + Market Heat alto.' },
+        { tone:'yellow', title:'Zona de euforia', text:'Apertar stops e proteger lucros em alvos parciais.', why:'MVRV elevado / sentimento eufórico.' },
+        { tone:'red', title:'Baleias depositando em CEX', text:'Evitar aumentar alavancagem em resistências; considerar hedge curto.', why:'Entradas em exchange indicam pressão vendedora.' },
+      ];
+      alerts.innerHTML = alertItems.map(a => \`
+        <div class="card" style="padding:12px; margin-bottom:8px;">
+          <div class="row"><span class="pill \${a.tone}">\${a.tone==='green'?'Oportunidade':a.tone==='red'?'Risco':'Atenção'}</span>
+          <div style="font-weight:700">\${a.title}</div></div>
+          <div class="mini">\${a.text}</div>
+          <div class="mini">Justificativa: \${a.why}</div>
+        </div>\`).join('');
+
+      // -------- Modal Nova Operação --------
+      const modalBg = document.getElementById('modalBg');
+      const btnNova = document.getElementById('btnNova');
+      const btnCancel = document.getElementById('btnCancel');
+      const btnSave = document.getElementById('btnSave');
+
+      function openModal(){
+        if(!modalBg){ alert('Formulário indisponível. Recarregue a página (Ctrl+F5).'); return; }
+        modalBg.style.display='flex';
+        const input = document.getElementById('fSymbol');
+        if (input) input.focus();
+      }
+      if (btnNova) {
+        btnNova.addEventListener('click', openModal);
+        // Fallback onclick in case addEventListener fails:
+        btnNova.onclick = openModal;
+      }
+
+      if (btnCancel) btnCancel.addEventListener('click', ()=>{ modalBg.style.display='none'; });
+      if (modalBg) modalBg.addEventListener('click', (e)=>{ if(e.target===modalBg){ modalBg.style.display='none'; }});
+      if (btnSave) btnSave.addEventListener('click', ()=>{
+        const symbol = (document.getElementById('fSymbol').value || '').toUpperCase().trim();
+        const qty = Number(document.getElementById('fQty').value);
+        const entry = Number(document.getElementById('fEntry').value);
+        const price = Number(document.getElementById('fPrice').value) || entry;
+        const risk = Math.max(0, Math.min(1, Number(document.getElementById('fRisk').value)));
+        if(!symbol || !qty || !entry){ alert('Preencha pelo menos: Cripto, Quantidade e Preço de entrada.'); return; }
+        positions.push({ symbol, qty, entry, price, risk: isNaN(risk)?0.2:risk });
+        savePositions(positions);
+        modalBg.style.display='none';
+        // limpa form
+        ['fSymbol','fQty','fEntry','fPrice','fRisk'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+        renderPositions();
+        recalc();
+      });
+
+      // Limpar tudo
+      const limpar = document.getElementById('limpar');
+      if (limpar) limpar.addEventListener('click', ()=>{
+        if(confirm('Tem certeza que deseja remover todas as posições salvas?')){
+          positions = [];
+          savePositions(positions);
+          renderPositions();
+          recalc();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
